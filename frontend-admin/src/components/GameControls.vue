@@ -5,7 +5,7 @@
       class="stats-bar"
       :style="props.canvasWidth ? { width: `${props.canvasWidth}px` } : {}"
     >
-      <span class="stats-text">第{{ currentLevelIndex + 1 }}/{{ levels.length }}关 移动次数:{{ moves }}</span>
+      <span class="stats-text">第{{ currentLevelIndex + 1 }}/{{ levels.length }}关 移动次数:{{ moves }}{{ props.keys !== undefined && props.keys > 0 ? ` 钥匙:${props.keys}` : '' }}</span>
     </div>
 
     <!-- 游戏说明弹窗 -->
@@ -80,6 +80,7 @@ const props = defineProps<{
   levels: LevelData[];
   currentLevelIndex: number;
   canvasWidth?: number; // 画布宽度（可选）
+  keys?: number; // 钥匙数量
 }>();
 
 const emit = defineEmits(['reset', 'changeLevel']);

@@ -6,6 +6,10 @@
       <GameBoard
             :grid="gameState.grid"
             :player-pos="gameState.playerPos"
+            :keys="gameState.keys"
+            :doors-open="gameState.doorsOpen"
+            :pressure-plates-active="gameState.pressurePlatesActive"
+            :current-level-index="gameState.currentLevel - 1"
             @canvas-width-change="handleCanvasWidthChange"
           />
 
@@ -15,6 +19,7 @@
           :levels="levels"
           :current-level-index="gameState.currentLevel - 1"
           :canvas-width="canvasWidth"
+          :keys="gameState.keys"
           @reset="reset"
           @change-level="handleLevelChange"
         />
