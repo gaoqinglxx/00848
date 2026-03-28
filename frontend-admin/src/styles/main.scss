@@ -1,0 +1,79 @@
+@use 'variables' as *;
+
+// ===== Global Reset & Base Styles =====
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: $bg-color;
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: $text-primary;
+  font-size: $font-size-body;
+  line-height: $line-height-body;
+}
+
+// ===== Typography Hierarchy =====
+h1 {
+  font-size: $font-size-h1;
+  line-height: $line-height-h1;
+  font-weight: $font-weight-bold;
+  color: $text-primary;
+  margin: 0;
+}
+
+h2 {
+  font-size: $font-size-h2;
+  line-height: $line-height-h2;
+  font-weight: $font-weight-bold;
+  color: $text-primary;
+  margin: 0;
+}
+
+h3 {
+  font-size: $font-size-h3;
+  line-height: $line-height-h2;
+  font-weight: $font-weight-medium;
+  color: $text-primary;
+  margin: 0;
+}
+
+// ===== Custom Scrollbar =====
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: $border-color-base;
+  border-radius: 4px;
+  transition: $transition-fast;
+
+  &:hover {
+    background: $text-secondary;
+  }
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+// ===== Global Utility Classes =====
+.section-divider {
+  height: 1px;
+  background: $border-color-lighter;
+  margin: $spacing-lg 0;
+}
+
+.card-shadow {
+  box-shadow: $shadow-md;
+  transition: $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-lg;
+  }
+}

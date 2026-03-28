@@ -1,0 +1,12 @@
+services:
+  web-sokoban:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    image: web-sokoban:latest
+    container_name: sokoban-game
+    restart: always
+    ports:
+      - "8090:80"
+    environment:
+      - NODE_ENV=production
