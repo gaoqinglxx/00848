@@ -24,6 +24,18 @@
             <el-icon v-else-if="getCellAt(col - 1, row - 1) === 4" class="box-icon"><Box /></el-icon>
             <el-icon v-else-if="getCellAt(col - 1, row - 1) === 6" class="box-target-icon"><CircleCheckFilled /></el-icon>
             <el-icon v-else-if="getCellAt(col - 1, row - 1) === 3" class="target-icon"><Flag /></el-icon>
+            <!-- 新障碍类型的图标 -->
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 25" class="box-ice-icon"><Box /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 26" class="box-hole-icon"><Box /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 10" class="portal-icon"><Connection /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 11" class="portal-icon"><Connection /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 12" class="oneway-icon"><ArrowRight /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 13" class="oneway-icon"><ArrowDown /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 14" class="oneway-icon"><ArrowLeft /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 15" class="oneway-icon"><ArrowUp /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 16" class="lock-icon"><Lock /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 17" class="key-icon"><Key /></el-icon>
+            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 18" class="switch-icon"><SwitchButton /></el-icon>
           </template>
         </div>
       </div>
@@ -33,7 +45,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { CellType, type Position } from '@/types';
-import { User, Box, Flag, CircleCheckFilled } from '@element-plus/icons-vue';
+import { User, Box, Flag, CircleCheckFilled, IceCream, Clock, ArrowRight, ArrowDown, ArrowLeft, ArrowUp, Lock, Key, SwitchButton, Connection, Place } from '@element-plus/icons-vue';
 
 const props = defineProps<{
   grid: CellType[][];
@@ -127,6 +139,32 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
   if (cell === CellType.Wall) classes.push('is-wall');
   else if (cell === CellType.Floor) classes.push('is-floor');
   else if (cell === CellType.Target) classes.push('is-target');
+  else if (cell === CellType.Ice) classes.push('is-ice');
+  else if (cell === CellType.Trap) classes.push('is-trap');
+  else if (cell === CellType.PortalA) classes.push('is-portal-a');
+  else if (cell === CellType.PortalB) classes.push('is-portal-b');
+  else if (cell === CellType.OneWayDoorRight) classes.push('is-oneway-right');
+  else if (cell === CellType.OneWayDoorDown) classes.push('is-oneway-down');
+  else if (cell === CellType.OneWayDoorLeft) classes.push('is-oneway-left');
+  else if (cell === CellType.OneWayDoorUp) classes.push('is-oneway-up');
+  else if (cell === CellType.Lock) classes.push('is-lock');
+  else if (cell === CellType.Key) classes.push('is-key');
+  else if (cell === CellType.Switch) classes.push('is-switch');
+  else if (cell === CellType.SwitchWall) classes.push('is-switch-wall');
+  else if (cell === CellType.Hole) classes.push('is-hole');
+  else if (cell === CellType.MagnetNorth) classes.push('is-magnet-north');
+  else if (cell === CellType.MagnetSouth) classes.push('is-magnet-south');
+  else if (cell === CellType.MagnetEast) classes.push('is-magnet-east');
+  else if (cell === CellType.MagnetWest) classes.push('is-magnet-west');
+  else if (cell === CellType.BoxOnIce) classes.push('is-box-on-ice');
+  else if (cell === CellType.BoxOnHole) classes.push('is-box-on-hole');
+  else if (cell === CellType.PlayerOnIce) classes.push('is-player-on-ice');
+  else if (cell === CellType.PlayerOnTrap) classes.push('is-player-on-trap');
+  else if (cell === CellType.PlayerOnPortal) classes.push('is-player-on-portal');
+  else if (cell === CellType.PlayerOnLock) classes.push('is-player-on-lock');
+  else if (cell === CellType.PlayerOnKey) classes.push('is-player-on-key');
+  else if (cell === CellType.PlayerOnSwitch) classes.push('is-player-on-switch');
+  else if (cell === CellType.PlayerOnMagnet) classes.push('is-player-on-magnet');
   else classes.push('is-empty');
 
   // 检查玩家位置
@@ -256,6 +294,189 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
   opacity: 0.9;
   font-size: 75%; // 增大图标尺寸
   filter: drop-shadow(0 2px 4px rgba(255, 107, 107, 0.4));
+}
+
+// 新障碍类型的样式
+.grid-cell.is-ice {
+  background: #E3F2FD; // 浅蓝色，代表冰块
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.8) 3px, transparent 3px),
+    radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.6) 2px, transparent 2px),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.7) 2px, transparent 2px);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 4px rgba(100, 181, 246, 0.3);
+}
+
+.grid-cell.is-trap {
+  background: #FFEBEE; // 浅红色，代表陷阱
+  background-image: 
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(244, 67, 54, 0.2) 4px,
+      rgba(244, 67, 54, 0.2) 8px
+    );
+  border-radius: 2px;
+  box-shadow: 
+    inset 0 0 0 2px rgba(244, 67, 54, 0.3);
+}
+
+.grid-cell.is-portal-a {
+  background: #E8F5E9; // 浅绿色，代表传送门A
+  background-image: 
+    radial-gradient(circle at center, rgba(76, 175, 80, 0.5) 0%, transparent 70%);
+  border-radius: 50%;
+  box-shadow: 
+    0 0 10px rgba(76, 175, 80, 0.5),
+    inset 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.grid-cell.is-portal-b {
+  background: #F3E5F5; // 浅紫色，代表传送门B
+  background-image: 
+    radial-gradient(circle at center, rgba(156, 39, 176, 0.5) 0%, transparent 70%);
+  border-radius: 50%;
+  box-shadow: 
+    0 0 10px rgba(156, 39, 176, 0.5),
+    inset 0 0 10px rgba(156, 39, 176, 0.3);
+}
+
+.grid-cell.is-oneway-right,
+.grid-cell.is-oneway-down,
+.grid-cell.is-oneway-left,
+.grid-cell.is-oneway-up {
+  background: #FFF3E0; // 浅橙色，代表单向门
+  background-image: 
+    radial-gradient(circle at center, rgba(255, 152, 0, 0.3) 0%, transparent 70%);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 152, 0, 0.2),
+    inset 0 -2px 4px rgba(255, 152, 0, 0.1);
+}
+
+.grid-cell.is-lock {
+  background: #FFEB3B; // 黄色，代表锁
+  background-image: 
+    radial-gradient(circle at center, rgba(255, 235, 59, 0.5) 0%, transparent 70%);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 235, 59, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-cell.is-key {
+  background: #FFECB3; // 浅黄色，代表钥匙
+  background-image: 
+    radial-gradient(circle at center, rgba(255, 193, 7, 0.4) 0%, transparent 70%);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 193, 7, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-cell.is-switch {
+  background: #B3E5FC; // 浅蓝色，代表开关
+  background-image: 
+    radial-gradient(circle at center, rgba(33, 150, 243, 0.4) 0%, transparent 70%);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(33, 150, 243, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-cell.is-switch-wall {
+  background: #795548; // 棕色，代表开关墙
+  background-image: 
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 4px,
+      rgba(121, 85, 72, 0.3) 4px,
+      rgba(121, 85, 72, 0.3) 8px
+    );
+  border-radius: 2px;
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-cell.is-hole {
+  background: #424242; // 深灰色，代表洞
+  background-image: 
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.5) 0%, rgba(66, 66, 66, 0.8) 100%);
+  border-radius: 50%;
+  box-shadow: 
+    inset 0 2px 8px rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.grid-cell.is-magnet-north,
+.grid-cell.is-magnet-south,
+.grid-cell.is-magnet-east,
+.grid-cell.is-magnet-west {
+  background: #FCE4EC; // 浅粉色，代表磁铁
+  background-image: 
+    radial-gradient(circle at center, rgba(233, 30, 99, 0.4) 0%, transparent 70%);
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 2px 4px rgba(233, 30, 99, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.grid-cell.is-box-on-ice {
+  background: #E3F2FD; // 冰块背景
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.8) 3px, transparent 3px),
+    radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.6) 2px, transparent 2px);
+  border-radius: 4px;
+}
+
+.grid-cell.is-box-on-hole {
+  background: #424242; // 洞背景
+  background-image: 
+    radial-gradient(circle at center, rgba(0, 0, 0, 0.5) 0%, rgba(66, 66, 66, 0.8) 100%);
+  border-radius: 50%;
+}
+
+// 新障碍类型的图标样式
+.portal-icon {
+  color: #66BB6A; // 绿色，代表传送门
+  font-size: 80%;
+  filter: drop-shadow(0 2px 4px rgba(102, 187, 106, 0.4));
+}
+
+.oneway-icon {
+  color: #FF9800; // 橙色，代表单向门
+  font-size: 75%;
+  filter: drop-shadow(0 2px 4px rgba(255, 152, 0, 0.4));
+}
+
+.lock-icon {
+  color: #FFC107; // 黄色，代表锁
+  font-size: 80%;
+  filter: drop-shadow(0 2px 4px rgba(255, 193, 7, 0.4));
+}
+
+.key-icon {
+  color: #FFD54F; // 浅黄色，代表钥匙
+  font-size: 75%;
+  filter: drop-shadow(0 2px 4px rgba(255, 213, 79, 0.4));
+}
+
+.switch-icon {
+  color: #2196F3; // 蓝色，代表开关
+  font-size: 80%;
+  filter: drop-shadow(0 2px 4px rgba(33, 150, 243, 0.4));
+}
+
+.box-ice-icon,
+.box-hole-icon {
+  color: #D68910; // 与箱子相同的颜色
+  font-size: 95%;
+  filter: drop-shadow(0 3px 6px rgba(214, 137, 16, 0.5));
 }
 
 // Animations

@@ -15,6 +15,10 @@ export function useSokoban() {
 
   // History stack for Undo
   const history = ref<string[]>([]);
+  
+  // Game state for obstacles
+  const collectedKeys = ref(0);
+  const switchActivated = ref(false);
 
   const initLevel = (index: number) => {
     const level = levels[index];
@@ -25,6 +29,8 @@ export function useSokoban() {
     gameState.value.moves = 0;
     gameState.value.isComplete = false;
     history.value = [];
+    collectedKeys.value = 0;
+    switchActivated.value = false;
 
     // Deep copy and parse map
     const rawMap = level.map;
@@ -76,6 +82,76 @@ export function useSokoban() {
     }
   };
 
+  // Helper: Find portal pair
+  const findPortalPair = (portalType: CellType): Position | null => {
+    const pairType = portalType === CellType.PortalA ? CellType.PortalB : CellType.PortalA;
+    for (let y = 0; y < gameState.value.grid.length; y++) {
+      for (let x = 0; x < gameState.value.grid[y].length; x++) {
+        if (gameState.value.grid[y][x] === pairType) {
+          return { x, y };
+        }
+      }
+    }
+    return null;
+  };
+
+  // Helper: Handle ice sliding
+  const handleIceSlide = (x: number, y: number, dx: number, dy: number, isBox: boolean = false): Position | null => {
+    let slideX = x + dx;
+    let slideY = y + dy;
+    
+    while (true) {
+      // Check bounds
+      if (slideY < 0 || slideY >= gameState.value.grid.length || 
+          slideX < 0 || slideX >= gameState.value.grid[0].length) {
+        return { x: slideX - dx, y: slideY - dy };
+      }
+      
+      const cell = gameState.value.grid[slideY][slideX];
+      
+      // Check if cell is walkable
+      const isWalkable = [CellType.Floor, CellType.Target, CellType.Empty, CellType.Ice].includes(cell);
+      
+      if (!isWalkable) {
+        // Check if it's a box
+        if (cell === CellType.Box || cell === CellType.BoxOnTarget || cell === CellType.BoxOnIce) {
+          // Try to push the box
+          const boxNextX = slideX + dx;
+          const boxNextY = slideY + dy;
+          
+          if (boxNextY >= 0 && boxNextY < gameState.value.grid.length &&
+              boxNextX >= 0 && boxNextX < gameState.value.grid[0].length) {
+            const boxNextCell = gameState.value.grid[boxNextY][boxNextX];
+            const canPushBox = [CellType.Floor, CellType.Target, CellType.Empty, CellType.Ice].includes(boxNextCell);
+            
+            if (canPushBox) {
+              // Update box position
+              gameState.value.grid[boxNextY][boxNextX] = boxNextCell === CellType.Ice ? CellType.BoxOnIce : 
+                boxNextCell === CellType.Target ? CellType.BoxOnTarget : CellType.Box;
+              gameState.value.grid[slideY][slideX] = cell === CellType.BoxOnIce ? CellType.Ice : 
+                cell === CellType.BoxOnTarget ? CellType.Target : CellType.Floor;
+            } else {
+              return { x: slideX - dx, y: slideY - dy };
+            }
+          } else {
+            return { x: slideX - dx, y: slideY - dy };
+          }
+        } else {
+          return { x: slideX - dx, y: slideY - dy };
+        }
+      }
+      
+      // Check if reached non-ice cell
+      if (cell !== CellType.Ice) {
+        return { x: slideX, y: slideY };
+      }
+      
+      // Continue sliding
+      slideX += dx;
+      slideY += dy;
+    }
+  };
+
   const move = (dx: number, dy: number) => {
     if (gameState.value.isComplete) return;
 
@@ -88,64 +164,173 @@ export function useSokoban() {
 
     const targetCell = gameState.value.grid[newY][newX];
 
-    // 1. Wall check
-    if (targetCell === CellType.Wall) return;
+    // 1. Basic obstacles check
+    const basicObstacles = [CellType.Wall];
+    if (basicObstacles.includes(targetCell)) return;
 
-    // 2. Empty/Floor/Target check (Walkable)
-    const isWalkable = [CellType.Floor, CellType.Target, CellType.Empty].includes(targetCell);
+    // 2. Switch wall check
+    if (targetCell === CellType.SwitchWall && !switchActivated.value) return;
+
+    // 3. One-way door check
+    if (targetCell === CellType.OneWayDoorRight && dx !== 1) return;
+    if (targetCell === CellType.OneWayDoorDown && dy !== 1) return;
+    if (targetCell === CellType.OneWayDoorLeft && dx !== -1) return;
+    if (targetCell === CellType.OneWayDoorUp && dy !== -1) return;
+
+    // 4. Lock check
+    if (targetCell === CellType.Lock && collectedKeys.value === 0) return;
 
     // Save state for undo
     const stateSnapshot = JSON.stringify({
       grid: gameState.value.grid,
       playerPos: gameState.value.playerPos,
-      moves: gameState.value.moves
+      moves: gameState.value.moves,
+      collectedKeys: collectedKeys.value,
+      switchActivated: switchActivated.value
     });
 
-    if (isWalkable) {
-        // Just move
+    // Handle special cells
+    let finalX = newX;
+    let finalY = newY;
+    let moved = false;
+
+    // Key collection
+    if (targetCell === CellType.Key) {
+      collectedKeys.value++;
+      gameState.value.grid[newY][newX] = CellType.Floor;
+      moved = true;
+    }
+
+    // Lock unlocking
+    if (targetCell === CellType.Lock && collectedKeys.value > 0) {
+      collectedKeys.value--;
+      gameState.value.grid[newY][newX] = CellType.Floor;
+      moved = true;
+    }
+
+    // Switch activation
+    if (targetCell === CellType.Switch) {
+      switchActivated.value = !switchActivated.value;
+      moved = true;
+    }
+
+    // Portal handling
+    if (targetCell === CellType.PortalA || targetCell === CellType.PortalB) {
+      const portalPair = findPortalPair(targetCell);
+      if (portalPair) {
+        finalX = portalPair.x;
+        finalY = portalPair.y;
+        moved = true;
+      }
+    }
+
+    // Ice handling
+    if (targetCell === CellType.Ice) {
+      const slideResult = handleIceSlide(newX, newY, dx, dy, false);
+      if (slideResult) {
+        finalX = slideResult.x;
+        finalY = slideResult.y;
+        moved = true;
+      }
+    }
+
+    // Magnet handling (simple version - pull boxes in direction)
+    const magnetTypes = [CellType.MagnetNorth, CellType.MagnetSouth, CellType.MagnetEast, CellType.MagnetWest];
+    if (magnetTypes.includes(targetCell)) {
+      // For simplicity, just move player and handle magnet effect on next move
+      moved = true;
+    }
+
+    // Hole filling (if player pushes box into hole)
+    if (targetCell === CellType.Hole) {
+      // Hole can only be filled by box, not player
+      // If player steps on hole, they fall through (reset level)
+      gameState.value.grid[newY][newX] = CellType.Empty;
+      ElMessage.warning('你掉入了洞穴！');
+      initLevel(currentLevelIndex.value);
+      return;
+    }
+
+    // Trap handling
+    if (targetCell === CellType.Trap) {
+      // Trap doesn't affect player, only boxes
+      moved = true;
+    }
+
+    // 5. Normal walkable cells
+    const normalWalkable = [CellType.Floor, CellType.Target, CellType.Empty].includes(targetCell);
+    if (normalWalkable || moved) {
+      // Move player
+      gameState.value.playerPos = { x: finalX, y: finalY };
+      gameState.value.moves++;
+      history.value.push(stateSnapshot);
+    }
+
+    // 6. Box interaction
+    else if (targetCell === CellType.Box || targetCell === CellType.BoxOnTarget || targetCell === CellType.BoxOnIce) {
+      const boxNextX = newX + dx;
+      const boxNextY = newY + dy;
+
+      // Bounds for box
+      if (boxNextY < 0 || boxNextY >= gameState.value.grid.length || boxNextX < 0 || boxNextX >= gameState.value.grid[0].length) return;
+
+      const boxNextCell = gameState.value.grid[boxNextY][boxNextX];
+
+      // Can we push the box?
+      const canPushBox = [CellType.Floor, CellType.Target, CellType.Empty, CellType.Ice, CellType.Hole, CellType.Trap, 
+                          CellType.MagnetNorth, CellType.MagnetSouth, CellType.MagnetEast, CellType.MagnetWest].includes(boxNextCell);
+
+      // Switch wall check for box
+      if (boxNextCell === CellType.SwitchWall && !switchActivated.value) return;
+
+      if (canPushBox) {
+        const staticMap = levels[currentLevelIndex.value].map;
+        const isTargetAtCurrentBox = staticMap[newY][newX] === CellType.Target;
+        const isTargetAtNextBox = staticMap[boxNextY][boxNextX] === CellType.Target;
+
+        // Handle special box destinations
+        let finalBoxX = boxNextX;
+        let finalBoxY = boxNextY;
+        let boxDestroyed = false;
+
+        // Hole handling - box falls in
+        if (boxNextCell === CellType.Hole) {
+          gameState.value.grid[boxNextY][boxNextX] = CellType.BoxOnHole;
+          boxDestroyed = true;
+        }
+
+        // Trap handling - box disappears
+        if (boxNextCell === CellType.Trap) {
+          gameState.value.grid[boxNextY][boxNextX] = CellType.Floor;
+          boxDestroyed = true;
+        }
+
+        // Ice handling - box slides
+        if (boxNextCell === CellType.Ice) {
+          const slideResult = handleIceSlide(boxNextX, boxNextY, dx, dy, true);
+          if (slideResult) {
+            finalBoxX = slideResult.x;
+            finalBoxY = slideResult.y;
+          }
+        }
+
+        if (!boxDestroyed) {
+          // Update box position
+          gameState.value.grid[finalBoxY][finalBoxX] = isTargetAtNextBox ? CellType.BoxOnTarget : 
+            boxNextCell === CellType.Ice ? CellType.BoxOnIce : CellType.Box;
+        }
+
+        // Restore original cell
+        gameState.value.grid[newY][newX] = isTargetAtCurrentBox ? CellType.Target : 
+          targetCell === CellType.BoxOnIce ? CellType.Ice : CellType.Floor;
+
+        // Move Player
         gameState.value.playerPos = { x: newX, y: newY };
         gameState.value.moves++;
         history.value.push(stateSnapshot);
-    }
-    // 3. Box interaction
-    else if (targetCell === CellType.Box || targetCell === CellType.BoxOnTarget) {
-        const boxNextX = newX + dx;
-        const boxNextY = newY + dy;
 
-        // Bounds for box
-        if (boxNextY < 0 || boxNextY >= gameState.value.grid.length || boxNextX < 0 || boxNextX >= gameState.value.grid[0].length) return;
-
-        const boxNextCell = gameState.value.grid[boxNextY][boxNextX];
-
-        // Can we push the box? (Behind box must be Floor or Target)
-        // NOTE: We need to preserve the underlying cell type (Floor vs Target) when moving a box out.
-        // This simple grid approach might lose info if we overwrite.
-        // Better approach: Grid represents OBJECTS, but we need to know STATIC MAP for Targets.
-
-        if ([CellType.Floor, CellType.Target, CellType.Empty].includes(boxNextCell)) {
-            // Move Box
-            // Logic:
-            // - Restore cell at (newX, newY) to what it should be without box (Floor or Target)
-            // - Set cell at (boxNextX, boxNextY) to Box (or BoxOnTarget)
-
-            const staticMap = levels[currentLevelIndex.value].map;
-            const isTargetAtCurrentBox = staticMap[newY][newX] === CellType.Target;
-            const isTargetAtNextBox = staticMap[boxNextY][boxNextX] === CellType.Target;
-
-            // Update Grid
-            // Old Box pos becomes Floor or Target
-            gameState.value.grid[newY][newX] = isTargetAtCurrentBox ? CellType.Target : CellType.Floor;
-
-            // New Box pos becomes Box or BoxOnTarget
-            gameState.value.grid[boxNextY][boxNextX] = isTargetAtNextBox ? CellType.BoxOnTarget : CellType.Box;
-
-            // Move Player
-            gameState.value.playerPos = { x: newX, y: newY };
-            gameState.value.moves++;
-            history.value.push(stateSnapshot);
-
-            checkWin();
-        }
+        checkWin();
+      }
     }
   };
 
@@ -156,6 +341,8 @@ export function useSokoban() {
     gameState.value.playerPos = previousState.playerPos;
     gameState.value.moves = previousState.moves;
     gameState.value.isComplete = false;
+    collectedKeys.value = previousState.collectedKeys || 0;
+    switchActivated.value = previousState.switchActivated || false;
   };
 
   const reset = () => {
@@ -169,6 +356,8 @@ export function useSokoban() {
     move,
     undo,
     reset,
-    levels
+    levels,
+    collectedKeys,
+    switchActivated
   };
 }
