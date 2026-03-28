@@ -23,7 +23,22 @@
             <el-icon v-if="isPlayerAt(col - 1, row - 1)" class="player-icon"><User /></el-icon>
             <el-icon v-else-if="getCellAt(col - 1, row - 1) === 4" class="box-icon"><Box /></el-icon>
             <el-icon v-else-if="getCellAt(col - 1, row - 1) === 6" class="box-target-icon"><CircleCheckFilled /></el-icon>
-            <el-icon v-else-if="getCellAt(col - 1, row - 1) === 3" class="target-icon"><Flag /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 3" class="target-icon"><Flag /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 8" class="ice-icon"><Star /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 9" class="pressure-plate-icon">
+              <component :is="isPressurePlateActive(col - 1, row - 1) ? CircleCheckFilled : Close" />
+            </el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 10" class="door-icon">
+              <component :is="isDoorOpen(col - 1, row - 1) ? CircleCheckFilled : Close" />
+            </el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 11 && getCellAt(col - 1, row - 1) !== CellType.Floor" class="key-icon"><Key /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 12 && getCellAt(col - 1, row - 1) !== CellType.Floor" class="lock-icon"><Lock /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 13" class="oneway-icon"><ArrowRight /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 14" class="oneway-icon"><ArrowLeft /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 15" class="oneway-icon"><ArrowUp /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 16" class="oneway-icon"><ArrowDown /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 17" class="portal-icon portal-a"><Connection /></el-icon>
+            <el-icon v-else-if="getStaticCellAt(col - 1, row - 1) === 18" class="portal-icon portal-b"><Connection /></el-icon>
           </template>
         </div>
       </div>
@@ -33,16 +48,24 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import { CellType, type Position } from '@/types';
-import { User, Box, Flag, CircleCheckFilled } from '@element-plus/icons-vue';
+import { levels } from '@/data/levels';
+import { User, Box, Flag, CircleCheckFilled, Key, Lock, ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Connection, Close, Star } from '@element-plus/icons-vue';
 
 const props = defineProps<{
   grid: CellType[][];
   playerPos: Position;
+  keys: number;
+  doorsOpen: Set<string>;
+  pressurePlatesActive: Set<string>;
+  currentLevelIndex: number;
 }>();
 
 const emit = defineEmits<{
   canvasWidthChange: [width: number];
 }>();
+
+// 获取当前关卡的静态地图
+const staticMap = computed(() => levels[props.currentLevelIndex]?.map || []);
 
 // 固定画布尺寸（正方形）- 减少尺寸，避免底部多余格子
 const CANVAS_SIZE = 12;
@@ -103,6 +126,16 @@ const getCellAt = (canvasX: number, canvasY: number) => {
   return props.grid[mapY][mapX];
 };
 
+// 获取静态地图中指定位置的单元格
+const getStaticCellAt = (canvasX: number, canvasY: number) => {
+  if (!isInMapBounds(canvasX, canvasY)) {
+    return CellType.Empty;
+  }
+  const mapX = canvasX - startCol.value;
+  const mapY = canvasY - startRow.value;
+  return staticMap.value[mapY]?.[mapX] || CellType.Empty;
+};
+
 // 检查玩家是否在指定位置
 const isPlayerAt = (canvasX: number, canvasY: number) => {
   if (!isInMapBounds(canvasX, canvasY)) {
@@ -111,6 +144,26 @@ const isPlayerAt = (canvasX: number, canvasY: number) => {
   const mapX = canvasX - startCol.value;
   const mapY = canvasY - startRow.value;
   return props.playerPos.x === mapX && props.playerPos.y === mapY;
+};
+
+// 检查门是否打开
+const isDoorOpen = (canvasX: number, canvasY: number) => {
+  if (!isInMapBounds(canvasX, canvasY)) {
+    return false;
+  }
+  const mapX = canvasX - startCol.value;
+  const mapY = canvasY - startRow.value;
+  return props.doorsOpen.has(`${mapX},${mapY}`);
+};
+
+// 检查压力板是否激活
+const isPressurePlateActive = (canvasX: number, canvasY: number) => {
+  if (!isInMapBounds(canvasX, canvasY)) {
+    return false;
+  }
+  const mapX = canvasX - startCol.value;
+  const mapY = canvasY - startRow.value;
+  return props.pressurePlatesActive.has(`${mapX},${mapY}`);
 };
 
 // 获取画布位置的单元格类型（用于样式）
@@ -123,11 +176,17 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
   }
 
   const cell = getCellAt(canvasX, canvasY);
+  const staticCell = getStaticCellAt(canvasX, canvasY);
 
-  if (cell === CellType.Wall) classes.push('is-wall');
-  else if (cell === CellType.Floor) classes.push('is-floor');
-  else if (cell === CellType.Target) classes.push('is-target');
-  else classes.push('is-empty');
+  if (staticCell === CellType.Wall) classes.push('is-wall');
+  else if (staticCell === CellType.Ice) classes.push('is-ice');
+  else if (staticCell === CellType.PressurePlate) classes.push('is-pressure-plate');
+  else if (staticCell === CellType.Door) classes.push(isDoorOpen(canvasX, canvasY) ? 'is-door-open' : 'is-door-closed');
+  else if (staticCell === CellType.OneWayRight || staticCell === CellType.OneWayLeft || 
+           staticCell === CellType.OneWayUp || staticCell === CellType.OneWayDown) classes.push('is-oneway');
+  else if (staticCell === CellType.PortalA || staticCell === CellType.PortalB) classes.push('is-portal');
+  else if (staticCell === CellType.Target) classes.push('is-target');
+  else if (cell === CellType.Floor || cell === CellType.Empty) classes.push('is-floor');
 
   // 检查玩家位置
   if (isPlayerAt(canvasX, canvasY)) {
@@ -210,6 +269,54 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
       inset 0 0 0 1px rgba(139, 195, 74, 0.4);
   }
 
+  &.is-ice {
+    // 冰面使用浅蓝色
+    background: #E3F2FD;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(33, 150, 243, 0.3);
+  }
+
+  &.is-pressure-plate {
+    // 压力板使用灰色
+    background: #F5F5F5;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(158, 158, 158, 0.5);
+  }
+
+  &.is-door-closed {
+    // 关闭的门使用深棕色
+    background: #8D6E63;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(62, 39, 35, 0.5);
+  }
+
+  &.is-door-open {
+    // 打开的门使用浅绿色
+    background: #C8E6C9;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(76, 175, 80, 0.3);
+  }
+
+  &.is-oneway {
+    // 单向门使用浅黄色
+    background: #FFF9C4;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 193, 7, 0.4);
+  }
+
+  &.is-portal {
+    // 传送门使用紫色
+    background: #F3E5F5;
+    border-radius: 2px;
+    box-shadow:
+      inset 0 0 0 1px rgba(156, 39, 176, 0.3);
+  }
+
   &.is-player {
     z-index: 10;
 
@@ -258,6 +365,56 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
   filter: drop-shadow(0 2px 4px rgba(255, 107, 107, 0.4));
 }
 
+.ice-icon {
+  font-size: 60%;
+  opacity: 0.5;
+}
+
+.pressure-plate-icon {
+  color: #9E9E9E;
+  font-size: 70%;
+  filter: drop-shadow(0 2px 4px rgba(158, 158, 158, 0.4));
+}
+
+.door-icon {
+  color: #8D6E63;
+  font-size: 80%;
+  filter: drop-shadow(0 2px 4px rgba(141, 110, 99, 0.4));
+}
+
+.key-icon {
+  color: #FFD700;
+  font-size: 75%;
+  filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.5));
+  animation: glow 1.5s ease-in-out infinite;
+}
+
+.lock-icon {
+  color: #795548;
+  font-size: 75%;
+  filter: drop-shadow(0 2px 4px rgba(121, 85, 72, 0.4));
+}
+
+.oneway-icon {
+  color: #FF9800;
+  font-size: 70%;
+  filter: drop-shadow(0 2px 4px rgba(255, 152, 0, 0.4));
+}
+
+.portal-icon {
+  font-size: 80%;
+  filter: drop-shadow(0 2px 4px rgba(156, 39, 176, 0.4));
+  animation: portalPulse 2s ease-in-out infinite;
+
+  &.portal-a {
+    color: #9C27B0;
+  }
+
+  &.portal-b {
+    color: #E91E63;
+  }
+}
+
 // Animations
 @keyframes bounce {
   0% { transform: scale(0.8); }
@@ -273,6 +430,17 @@ const getCellClassForPosition = (canvasX: number, canvasY: number) => {
 @keyframes glow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }
+}
+
+@keyframes portalPulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
 }
 
 /* Responsive adjustments */
